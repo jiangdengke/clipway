@@ -465,7 +465,10 @@ fn build_entry_row(
 
 fn build_row_subtitle(entry: &ClipboardEntry) -> String {
     match entry.kind {
-        ClipboardEntryKind::Text => format!("#{}  {} | text | activate to copy", entry.id, entry.created_at),
+        ClipboardEntryKind::Text => format!(
+            "#{}  {} | text | activate to copy",
+            entry.id, entry.created_at
+        ),
         ClipboardEntryKind::Image => {
             let size = entry
                 .binary_content
@@ -490,7 +493,8 @@ fn build_row_subtitle(entry: &ClipboardEntry) -> String {
 
 fn build_image_prefix(entry: &ClipboardEntry) -> Option<gtk::Picture> {
     let bytes = entry.binary_content.as_ref()?;
-    let texture = gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_owned(bytes.clone())).ok()?;
+    let texture =
+        gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_owned(bytes.clone())).ok()?;
 
     let picture = gtk::Picture::new();
     picture.set_paintable(Some(&texture));
@@ -501,7 +505,8 @@ fn build_image_prefix(entry: &ClipboardEntry) -> Option<gtk::Picture> {
 
 fn image_dimensions(entry: &ClipboardEntry) -> Option<(i32, i32)> {
     let bytes = entry.binary_content.as_ref()?;
-    let texture = gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_owned(bytes.clone())).ok()?;
+    let texture =
+        gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_owned(bytes.clone())).ok()?;
     Some((texture.width(), texture.height()))
 }
 

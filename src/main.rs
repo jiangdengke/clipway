@@ -42,10 +42,7 @@ fn run() -> Result<()> {
                     ClipboardEntryKind::Text => preview_text(&entry.content),
                     ClipboardEntryKind::Image => entry.content,
                 };
-                println!(
-                    "{}\t{}\t{}",
-                    entry.id, entry.created_at, preview
-                );
+                println!("{}\t{}\t{}", entry.id, entry.created_at, preview);
             }
             Ok(())
         }
@@ -59,7 +56,10 @@ fn run() -> Result<()> {
                 ClipboardEntryKind::Text => clipboard::copy_text(&entry.content)?,
                 ClipboardEntryKind::Image => clipboard::copy_image(
                     &entry.content_type,
-                    entry.binary_content.as_deref().context("image payload was missing")?,
+                    entry
+                        .binary_content
+                        .as_deref()
+                        .context("image payload was missing")?,
                 )?,
             }
             println!("copied item {id} back to the clipboard");
@@ -111,10 +111,8 @@ fn parse_command() -> Result<Command> {
             while let Some(arg) = args.next() {
                 match arg.as_str() {
                     "--activation-token" => {
-                        activation_token = Some(
-                            args.next()
-                                .context("--activation-token requires a value")?,
-                        );
+                        activation_token =
+                            Some(args.next().context("--activation-token requires a value")?);
                     }
                     other => bail!("unknown gui option: {other}"),
                 }

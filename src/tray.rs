@@ -82,8 +82,8 @@ impl ksni::Tray for ClipwayTray {
     }
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
-        use ksni::menu::StandardItem;
         use ksni::MenuItem;
+        use ksni::menu::StandardItem;
 
         let capture_label = if self.daemon_running {
             "Stop background capture"

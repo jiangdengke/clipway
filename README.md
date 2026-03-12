@@ -1,5 +1,7 @@
 # Clipway
 
+[中文说明](./README.zh-CN.md)
+
 Clipway is a Wayland clipboard history app for Linux built with Rust, GTK4/libadwaita, SQLite, `wl-clipboard`, and a StatusNotifier tray entry.
 
 Current scope:

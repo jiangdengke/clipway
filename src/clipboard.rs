@@ -69,7 +69,11 @@ fn run_text_watcher(sender: Sender<ClipboardEvent>) -> anyhow::Result<()> {
         let mut frame = Vec::new();
 
         match reader.read_until(0, &mut frame) {
-            Ok(0) => return Err(anyhow::anyhow!("wl-paste text watcher stopped unexpectedly")),
+            Ok(0) => {
+                return Err(anyhow::anyhow!(
+                    "wl-paste text watcher stopped unexpectedly"
+                ));
+            }
             Ok(_) => {
                 if frame.last() == Some(&0) {
                     frame.pop();
@@ -113,12 +117,15 @@ fn run_image_watcher(sender: Sender<ClipboardEvent>) -> anyhow::Result<()> {
         let mut size_line = String::new();
 
         match reader.read_line(&mut size_line) {
-            Ok(0) => return Err(anyhow::anyhow!("wl-paste image watcher stopped unexpectedly")),
+            Ok(0) => {
+                return Err(anyhow::anyhow!(
+                    "wl-paste image watcher stopped unexpectedly"
+                ));
+            }
             Ok(_) => {
-                let size = size_line
-                    .trim()
-                    .parse::<usize>()
-                    .map_err(|_| anyhow::anyhow!("invalid image frame size: {}", size_line.trim()))?;
+                let size = size_line.trim().parse::<usize>().map_err(|_| {
+                    anyhow::anyhow!("invalid image frame size: {}", size_line.trim())
+                })?;
 
                 if size == 0 {
                     continue;
