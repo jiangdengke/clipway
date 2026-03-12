@@ -94,8 +94,8 @@ if [ -n "${XDG_CURRENT_DESKTOP:-}" ]; then
         *KDE*|*Plasma*)
             pass "KDE Plasma desktop detected"
             ;;
-        *Hyprland*|*sway*|*Sway*)
-            warn "wlroots desktops need a panel with StatusNotifier support for tray icons"
+        *Hyprland*|*sway*|*Sway*|*niri*|*Niri*)
+            warn "wlroots desktops such as Hyprland, sway, and niri need a panel with StatusNotifier support for tray icons"
             ;;
         *)
             warn "Desktop '$XDG_CURRENT_DESKTOP' is unverified. Use daemon mode if tray support is missing."

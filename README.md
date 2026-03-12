@@ -102,13 +102,25 @@ Portable release package:
 ./packaging/linux/package-release.sh
 ```
 
-This produces a tarball under `dist/`, for example:
+This produces a tarball and checksum under `dist/`, for example:
 
 ```bash
 dist/clipway-0.1.0-linux-x86_64.tar.gz
+dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
 ```
 
 Unpack it anywhere and run `bin/clipway` directly, or copy `bin/clipway` and `bin/clipway-self-check` into your preferred prefix.
+
+## GitHub Releases
+
+The CI workflow uploads package artifacts for every push and pull request. To publish the same package on GitHub Releases, push a version tag that matches `Cargo.toml`, for example:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds the archive, writes a `.sha256` file, and attaches both files to the GitHub Release for that tag.
 
 ## Post-Install Self-Check
 
@@ -147,7 +159,7 @@ Clipway is designed for Linux on Wayland. Current support level:
 
 - KDE Plasma Wayland: best-supported target. Clipboard history, tray mode, and portal-based integrations fit this desktop well.
 - GNOME Wayland: clipboard capture works, but tray mode usually needs an AppIndicator or StatusNotifier shell extension.
-- wlroots desktops such as Hyprland and Sway: clipboard capture works if `wl-clipboard` is installed; tray visibility depends on the panel or bar implementing StatusNotifier.
+- wlroots desktops such as Hyprland, Sway, and niri: clipboard capture works if `wl-clipboard` is installed; tray visibility depends on the panel or bar implementing StatusNotifier.
 - X11 sessions: not supported.
 
 Operational notes:
@@ -155,6 +167,25 @@ Operational notes:
 - `clipway daemon` is the safest fallback if tray support is missing on a desktop.
 - Portal-dependent features can vary across desktop implementations and portal backend versions.
 - If `clipway-self-check` warns about missing tray or portal support, the clipboard history core can still work.
+
+## Summon Shortcut
+
+On wlroots compositors, the practical way to summon Clipway is to let the compositor bind a key to `clipway gui`. The command already toggles or presents the existing Clipway window if one is running.
+
+niri example in `~/.config/niri/config.kdl`:
+
+```kdl
+binds {
+    Mod+V hotkey-overlay-title="Clipboard History" { spawn "~/.local/bin/clipway" "gui"; }
+}
+```
+
+Notes:
+
+- If `clipway` is already in your `PATH`, `spawn "clipway" "gui";` is enough.
+- niri `spawn` does not use a shell, so the binary path and each argument must be quoted separately.
+- niri live-reloads the config; run `niri validate` if you want to check the file before saving.
+- If you want history collection to start at login, enable the tray autostart entry or run the daemon through your session startup.
 
 ## Current Limitation
 

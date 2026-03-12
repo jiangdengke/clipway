@@ -102,13 +102,25 @@ sudo ./packaging/linux/install-system.sh
 ./packaging/linux/package-release.sh
 ```
 
-它会在 `dist/` 下生成一个压缩包，例如：
+它会在 `dist/` 下生成压缩包和校验文件，例如：
 
 ```bash
 dist/clipway-0.1.0-linux-x86_64.tar.gz
+dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
 ```
 
 解压后可以直接运行其中的 `bin/clipway`，也可以把 `bin/clipway` 和 `bin/clipway-self-check` 拷贝到你想要的安装前缀。
+
+## GitHub Releases
+
+CI 会在每次 push 和 pull request 时生成构建产物。如果你要把同样的产物自动发布到 GitHub Releases，推一个和 `Cargo.toml` 版本一致的 tag 就行，例如：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release workflow 会构建压缩包、生成 `.sha256` 校验文件，并把这两个文件挂到对应 tag 的 GitHub Release 上。
 
 ## 安装后自检
 
@@ -147,7 +159,7 @@ Clipway 面向 Linux Wayland。当前兼容性大致如下：
 
 - KDE Plasma Wayland：当前最佳目标环境。剪切板历史、tray 模式以及基于 portal 的能力都更匹配这个桌面
 - GNOME Wayland：剪切板捕获可以正常工作，但 tray 模式通常需要 AppIndicator 或 StatusNotifier 扩展
-- wlroots 桌面，例如 Hyprland、Sway：剪切板捕获可用，但 tray 是否可见取决于面板或状态栏是否实现了 StatusNotifier
+- wlroots 桌面，例如 Hyprland、Sway、niri：剪切板捕获可用，但 tray 是否可见取决于面板或状态栏是否实现了 StatusNotifier
 - X11 会话：不支持
 
 一些实际使用建议：
@@ -155,6 +167,25 @@ Clipway 面向 Linux Wayland。当前兼容性大致如下：
 - 如果某个桌面没有 tray 支持，`clipway daemon` 是最稳妥的退化运行方式
 - 依赖 portal 的功能会受桌面实现和 portal 后端版本影响
 - 如果 `clipway-self-check` 提示 tray 或 portal 不可用，剪切板历史核心功能仍然可以继续使用
+
+## 呼出快捷键
+
+在 wlroots compositor 下，更实际的方式不是让应用自己监听全局按键，而是让 compositor 绑定一个快捷键到 `clipway gui`。这个命令本身已经支持“有窗口就切到前台或切换，没有窗口就启动”。
+
+niri 的例子，写到 `~/.config/niri/config.kdl` 里的 `binds {}`：
+
+```kdl
+binds {
+    Mod+V hotkey-overlay-title="Clipboard History" { spawn "~/.local/bin/clipway" "gui"; }
+}
+```
+
+补充几点：
+
+- 如果 `clipway` 已经在 `PATH` 里，也可以写成 `spawn "clipway" "gui";`
+- niri 的 `spawn` 不经过 shell，所以二进制路径和每个参数都要分开写
+- niri 配置支持热重载；如果你想先检查语法，可以执行 `niri validate`
+- 如果你希望登录后就开始记录历史，建议同时开启 tray 自启动，或者把 daemon 放进会话启动项
 
 ## 当前限制
 
