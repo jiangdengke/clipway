@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -22,12 +22,40 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            curl \
             desktop-file-utils \
             libadwaita-1-dev \
             libgtk-4-dev \
-            libgtk-layer-shell-dev \
+            libwayland-dev \
+            meson \
+            ninja-build \
             pkg-config \
+            wayland-protocols \
             wl-clipboard
+
+      - name: Install GTK4 layer-shell
+        run: |
+          if apt-cache show libgtk4-layer-shell-dev >/dev/null 2>&1; then
+            sudo apt-get install -y libgtk4-layer-shell-dev
+            exit 0
+          fi
+
+          GTK4_LAYER_SHELL_VERSION=1.0.4
+          git clone --depth=1 --branch "v${GTK4_LAYER_SHELL_VERSION}" \
+            https://github.com/wmww/gtk4-layer-shell.git \
+            "$RUNNER_TEMP/gtk4-layer-shell"
+
+          meson setup "$RUNNER_TEMP/gtk4-layer-shell-build" "$RUNNER_TEMP/gtk4-layer-shell" \
+            --prefix=/usr \
+            -Dexamples=false \
+            -Ddocs=false \
+            -Dtests=false \
+            -Dintrospection=false \
+            -Dvapi=false
+
+          meson compile -C "$RUNNER_TEMP/gtk4-layer-shell-build"
+          sudo meson install -C "$RUNNER_TEMP/gtk4-layer-shell-build"
+          sudo ldconfig
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
