@@ -2,13 +2,13 @@
 
 [English README](./README.md)
 
-Clipway 是一个运行在 Linux Wayland 环境下的剪切板历史应用，使用 Rust、GTK4/libadwaita、SQLite、`wl-clipboard` 和 StatusNotifier tray 实现。
+Clipway 是一个运行在 Linux Wayland 环境下的剪切板历史应用，使用 Rust、GTK4/libadwaita、SQLite、`wl-clipboard`、`gtk4-layer-shell` 和 StatusNotifier tray 实现。
 
 当前能力：
 
 - 持久化保存文本和图片剪切板历史到 SQLite
 - 后台 daemon 模式，关闭窗口后仍可继续记录剪切板
-- GTK4/libadwaita 图形界面，支持搜索、PNG 缩略图、删除、清空，以及一键复制回剪切板
+- 基于 `gtk4-layer-shell` 的呼出式面板，风格更接近 rofi，支持搜索、PNG 缩略图、删除、清空，以及点击后复制并自动收起
 - 托盘常驻模式，无需一直打开主窗口
 - 提供简单 CLI，可列出、清空和恢复历史项
 
@@ -17,7 +17,7 @@ Clipway 是一个运行在 Linux Wayland 环境下的剪切板历史应用，使
 在 Arch Linux 上：
 
 ```bash
-sudo pacman -S --needed gtk4 libadwaita wl-clipboard xdg-desktop-portal
+sudo pacman -S --needed gtk4 gtk4-layer-shell libadwaita wl-clipboard xdg-desktop-portal
 ```
 
 还需要安装 Rust 和 Cargo。
@@ -46,13 +46,18 @@ GitHub Actions CI 配置位于 [`.github/workflows/ci.yml`](./.github/workflows/
 cargo run
 ```
 
-这会启动 GUI，并在后台 daemon 未运行时自动拉起它。
+这会启动呼出式历史面板，并在后台 daemon 未运行时自动拉起它。
 
 托盘模式：
 
 ```bash
 cargo run -- tray
 ```
+
+说明：
+
+- `clipway gui` 只负责呼出面板，不会自动显示托盘图标
+- 如果你需要托盘入口，需要单独运行 `clipway tray`
 
 ## CLI 命令
 
@@ -176,7 +181,7 @@ niri 的例子，写到 `~/.config/niri/config.kdl` 里的 `binds {}`：
 
 ```kdl
 binds {
-    Mod+V hotkey-overlay-title="Clipboard History" { spawn "~/.local/bin/clipway" "gui"; }
+    Alt+V allow-inhibiting=false { spawn "~/.local/bin/clipway" "gui"; }
 }
 ```
 
@@ -185,7 +190,23 @@ binds {
 - 如果 `clipway` 已经在 `PATH` 里，也可以写成 `spawn "clipway" "gui";`
 - niri 的 `spawn` 不经过 shell，所以二进制路径和每个参数都要分开写
 - niri 配置支持热重载；如果你想先检查语法，可以执行 `niri validate`
+- 在已安装 `gtk4-layer-shell` 的 wlroots 环境里，Clipway 会直接以顶部弹出面板方式打开，不再需要额外的 niri 浮动规则
 - 如果你希望登录后就开始记录历史，建议同时开启 tray 自启动，或者把 daemon 放进会话启动项
+- 如果你刚从旧版本升级，先执行一次 `pkill -f '/home/jdk/.local/bin/clipway gui'`，避免快捷键切回旧的普通窗口实例
+
+如果你的桌面环境暂时不支持 layer-shell，也可以退回到普通浮动窗口方案，再加一条按 `app-id` 匹配的 niri 规则：
+
+```kdl
+window-rule {
+    match app-id=r#"^io\.github\.jdk\.clipway$"#
+    open-floating true
+    default-floating-position x=0 y=24 relative-to="top"
+    default-column-width { proportion 0.55; }
+    default-window-height { proportion 0.72; }
+}
+```
+
+这条 fallback 规则会让它以“顶部居中、悬浮、较窄”的方式打开，更接近剪切板面板的感觉。
 
 ## 当前限制
 

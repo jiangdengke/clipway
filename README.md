@@ -2,13 +2,13 @@
 
 [中文说明](./README.zh-CN.md)
 
-Clipway is a Wayland clipboard history app for Linux built with Rust, GTK4/libadwaita, SQLite, `wl-clipboard`, and a StatusNotifier tray entry.
+Clipway is a Wayland clipboard history app for Linux built with Rust, GTK4/libadwaita, SQLite, `wl-clipboard`, `gtk4-layer-shell`, and a StatusNotifier tray entry.
 
 Current scope:
 
 - Persistent text and image clipboard history stored in SQLite
 - Background daemon mode so capture continues after the GUI closes
-- GTK4/libadwaita viewer with search, thumbnails for PNG images, delete, clear, and one-click copy-back
+- A `gtk4-layer-shell` popup panel closer to rofi in behavior, with search, PNG thumbnails, delete, clear, and copy-then-hide interaction
 - Tray resident mode so Clipway can stay available without an open window
 - Small CLI for listing, clearing, and restoring saved items
 
@@ -17,7 +17,7 @@ Current scope:
 On Arch Linux:
 
 ```bash
-sudo pacman -S --needed gtk4 libadwaita wl-clipboard xdg-desktop-portal
+sudo pacman -S --needed gtk4 gtk4-layer-shell libadwaita wl-clipboard xdg-desktop-portal
 ```
 
 Rust and Cargo are required to build the app.
@@ -46,13 +46,18 @@ It currently checks:
 cargo run
 ```
 
-This opens the GUI and auto-starts the background daemon if it is not already running.
+This opens the popup history panel and auto-starts the background daemon if it is not already running.
 
 Tray mode:
 
 ```bash
 cargo run -- tray
 ```
+
+Notes:
+
+- `clipway gui` only opens the popup panel; it does not create a tray icon by itself
+- If you want a tray entry, run `clipway tray` separately
 
 ## CLI Commands
 
@@ -176,7 +181,7 @@ niri example in `~/.config/niri/config.kdl`:
 
 ```kdl
 binds {
-    Mod+V hotkey-overlay-title="Clipboard History" { spawn "~/.local/bin/clipway" "gui"; }
+    Alt+V allow-inhibiting=false { spawn "~/.local/bin/clipway" "gui"; }
 }
 ```
 
@@ -185,7 +190,23 @@ Notes:
 - If `clipway` is already in your `PATH`, `spawn "clipway" "gui";` is enough.
 - niri `spawn` does not use a shell, so the binary path and each argument must be quoted separately.
 - niri live-reloads the config; run `niri validate` if you want to check the file before saving.
+- With `gtk4-layer-shell` installed, Clipway opens as a top popup panel on wlroots compositors and does not need an extra niri floating rule.
 - If you want history collection to start at login, enable the tray autostart entry or run the daemon through your session startup.
+- If you upgraded from an older build, run `pkill -f '/home/jdk/.local/bin/clipway gui'` once so the next shortcut launch starts the new popup panel instead of toggling the old normal window instance.
+
+If layer-shell is unavailable on your desktop, you can still fall back to a normal floating window with a niri rule:
+
+```kdl
+window-rule {
+    match app-id=r#"^io\.github\.jdk\.clipway$"#
+    open-floating true
+    default-floating-position x=0 y=24 relative-to="top"
+    default-column-width { proportion 0.55; }
+    default-window-height { proportion 0.72; }
+}
+```
+
+This fallback anchors the window to the top-center area of the screen and gives it a palette-like size.
 
 ## Current Limitation
 

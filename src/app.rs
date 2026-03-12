@@ -12,6 +12,10 @@ use std::time::Duration;
 use adw::prelude::*;
 use anyhow::{Context, Result};
 use gtk::Align;
+use gtk4_layer_shell::{
+    Edge as LayerShellEdge, KeyboardMode as LayerShellKeyboardMode, Layer as LayerShellLayer,
+    LayerShell,
+};
 
 use crate::clipboard;
 use crate::daemon;
@@ -20,6 +24,126 @@ use crate::storage::{ClipboardEntry, ClipboardEntryKind, HistorySignature, Stora
 
 const HISTORY_PAGE_SIZE: usize = 500;
 const GUI_COMMAND_POLL_INTERVAL: Duration = Duration::from_millis(120);
+const APP_CSS: &str = r#"
+window.clipway-window {
+    background: transparent;
+}
+
+.clipway-shell {
+    padding: 28px 0 0;
+    background: transparent;
+}
+
+.clipway-panel {
+    background-color: rgba(30, 30, 46, 0.87);
+    border: 1px solid rgba(156, 207, 216, 0.16);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    font-family: "MesloLGL Nerd Font";
+    font-size: 11pt;
+}
+
+.clipway-status {
+    margin: 0 2px 8px;
+    color: #c4c3ce;
+    font-size: 10pt;
+}
+
+.clipway-inputbar {
+    padding: 2px;
+    margin: 0 0 8px;
+    border-radius: 10px;
+    background-color: #2a2a37;
+}
+
+.clipway-prompt {
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 8px;
+    background-color: #9ccfd8;
+    color: #1e1e2e;
+    font-weight: 700;
+}
+
+searchentry.clipway-search {
+    background-color: transparent;
+    color: #e0def4;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    padding: 4px 8px;
+}
+
+searchentry.clipway-search image {
+    color: #c4c3ce;
+}
+
+.clipway-list {
+    background: transparent;
+}
+
+.clipway-row {
+    margin: 3px 0;
+    border-radius: 12px;
+    background: #2a2a37;
+    border: 1px solid rgba(224, 222, 244, 0.06);
+}
+
+.clipway-row:hover,
+.clipway-row:focus-within {
+    background: #363646;
+    border-color: rgba(156, 207, 216, 0.34);
+}
+
+.clipway-thumb {
+    border-radius: 10px;
+    background: #2a2a37;
+    border: 1px solid rgba(224, 222, 244, 0.10);
+}
+
+.clipway-kind-badge {
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 9pt;
+    font-weight: 700;
+}
+
+.clipway-kind-badge-text {
+    background: rgba(156, 207, 216, 0.18);
+    color: #9ccfd8;
+}
+
+.clipway-kind-badge-image {
+    background: rgba(246, 193, 119, 0.18);
+    color: #f6c177;
+}
+
+.clipway-action-button,
+.clipway-danger-button {
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+    background: #363646;
+    color: #e0def4;
+}
+
+.clipway-action-button:hover,
+.clipway-danger-button:hover {
+    background: #404053;
+}
+
+.clipway-danger-button {
+    color: #eb6f92;
+}
+
+.clipway-empty-title {
+    color: #e0def4;
+}
+
+.clipway-empty-subtitle {
+    color: #c4c3ce;
+}
+"#;
 
 #[derive(Clone)]
 struct AppWidgets {
@@ -75,6 +199,7 @@ pub fn run(startup_notice: Option<String>, activation_token: Option<String>) {
         .build();
     let initial_activation_token = Rc::new(RefCell::new(activation_token));
 
+    app.connect_startup(|_| install_app_css());
     app.connect_activate(move |app| {
         build_ui(
             app,
@@ -82,7 +207,7 @@ pub fn run(startup_notice: Option<String>, activation_token: Option<String>) {
             initial_activation_token.borrow_mut().take(),
         )
     });
-    app.run();
+    app.run_with_args(&["clipway"]);
 }
 
 fn build_ui(
@@ -93,7 +218,7 @@ fn build_ui(
     let storage = match Storage::open() {
         Ok(storage) => Rc::new(RefCell::new(storage)),
         Err(err) => {
-            present_fatal_window(app, &format!("Failed to open Clipway storage:\n\n{err:#}"));
+            present_fatal_window(app, &format!("无法打开 Clipway 数据库：\n\n{err:#}"));
             return;
         }
     };
@@ -115,57 +240,66 @@ fn build_ui(
         Err(err) => {
             present_fatal_window(
                 app,
-                &format!("Failed to create Clipway GUI control socket:\n\n{err:#}"),
+                &format!("无法创建 Clipway GUI 控制 socket：\n\n{err:#}"),
             );
             return;
         }
     };
-    let content = build_content(&widgets);
-    let header_bar = adw::HeaderBar::new();
-    let refresh_button = gtk::Button::builder()
-        .icon_name("view-refresh-symbolic")
-        .tooltip_text("Refresh history")
-        .build();
     let clear_button = gtk::Button::builder()
         .icon_name("user-trash-symbolic")
-        .tooltip_text("Clear clipboard history")
+        .tooltip_text("清空历史")
         .build();
+    let hide_button = gtk::Button::builder()
+        .icon_name("window-close-symbolic")
+        .tooltip_text("收起面板")
+        .build();
+    let prompt_label = gtk::Label::new(Some("剪切板"));
 
-    refresh_button.add_css_class("flat");
     clear_button.add_css_class("flat");
+    clear_button.add_css_class("clipway-danger-button");
+    hide_button.add_css_class("flat");
+    hide_button.add_css_class("clipway-action-button");
+    prompt_label.add_css_class("clipway-prompt");
 
-    header_bar.set_title_widget(Some(&gtk::Label::new(Some("Clipway"))));
-    header_bar.pack_end(&clear_button);
-    header_bar.pack_end(&refresh_button);
+    let content = build_content(&widgets, &prompt_label, &clear_button, &hide_button);
 
     widgets.toast_overlay.set_child(Some(&content));
 
+    let panel = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    panel.add_css_class("clipway-panel");
+    panel.set_halign(Align::Center);
+    panel.append(&widgets.toast_overlay);
+
     let window_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    window_content.append(&header_bar);
-    window_content.append(&widgets.toast_overlay);
+    window_content.add_css_class("clipway-shell");
+    window_content.append(&panel);
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("Clipway")
+        .title("剪切板历史")
         .default_width(560)
-        .default_height(760)
+        .default_height(460)
         .build();
 
+    configure_popup_window(&window);
+    window.add_css_class("clipway-window");
+    window.set_decorated(false);
+    window.set_hide_on_close(true);
     window.set_content(Some(&window_content));
+    add_window_shortcuts(&window);
+    add_focus_behavior(&window);
 
-    refresh_view(&widgets, &storage, &snapshot, true);
+    refresh_view(&widgets, &storage, &snapshot, &window, true);
 
     if let Some(message) = startup_notice {
         widgets.toast_overlay.add_toast(adw::Toast::new(&message));
     }
 
     {
-        let widgets = widgets.clone();
-        let storage = storage.clone();
-        let snapshot = snapshot.clone();
+        let window = window.clone();
 
-        refresh_button.connect_clicked(move |_| {
-            refresh_view(&widgets, &storage, &snapshot, true);
+        hide_button.connect_clicked(move |_| {
+            window.hide();
         });
     }
 
@@ -173,18 +307,19 @@ fn build_ui(
         let widgets = widgets.clone();
         let storage = storage.clone();
         let snapshot = snapshot.clone();
+        let window = window.clone();
 
         clear_button.connect_clicked(move |_| match storage.borrow().clear() {
             Ok(()) => {
                 widgets
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Clipboard history cleared"));
-                refresh_view(&widgets, &storage, &snapshot, true);
+                    .add_toast(adw::Toast::new("已清空剪切板历史"));
+                refresh_view(&widgets, &storage, &snapshot, &window, true);
             }
             Err(err) => {
-                widgets.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Failed to clear history: {err:#}"
-                )));
+                widgets
+                    .toast_overlay
+                    .add_toast(adw::Toast::new(&format!("清空历史失败：{err:#}")));
             }
         });
     }
@@ -193,12 +328,13 @@ fn build_ui(
         let widgets = widgets.clone();
         let storage = storage.clone();
         let snapshot = snapshot.clone();
+        let window = window.clone();
 
         widgets
             .search_entry
             .clone()
             .connect_search_changed(move |_| {
-                refresh_view(&widgets, &storage, &snapshot, true);
+                refresh_view(&widgets, &storage, &snapshot, &window, true);
             });
     }
 
@@ -206,9 +342,10 @@ fn build_ui(
         let widgets = widgets.clone();
         let storage = storage.clone();
         let snapshot = snapshot.clone();
+        let window = window.clone();
 
         gtk::glib::timeout_add_local(Duration::from_millis(800), move || {
-            refresh_view(&widgets, &storage, &snapshot, false);
+            refresh_view(&widgets, &storage, &snapshot, &window, false);
             gtk::glib::ControlFlow::Continue
         });
     }
@@ -249,13 +386,13 @@ fn build_ui(
 fn build_history_list() -> gtk::ListBox {
     let list_box = gtk::ListBox::new();
     let placeholder = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    let title = gtk::Label::new(Some("Clipboard history will appear here"));
+    let title = gtk::Label::new(Some("剪切板历史会显示在这里"));
     let subtitle = gtk::Label::new(Some(
-        "Copy some text in a Wayland application and it will be captured by the background daemon.",
+        "在 Wayland 应用里复制一些内容后，这里会自动显示最近的剪切板历史。",
     ));
 
-    title.add_css_class("title-4");
-    subtitle.add_css_class("dim-label");
+    title.add_css_class("clipway-empty-title");
+    subtitle.add_css_class("clipway-empty-subtitle");
     title.set_halign(Align::Center);
     subtitle.set_halign(Align::Center);
     subtitle.set_wrap(true);
@@ -266,7 +403,7 @@ fn build_history_list() -> gtk::ListBox {
     placeholder.append(&subtitle);
 
     list_box.set_selection_mode(gtk::SelectionMode::None);
-    list_box.add_css_class("boxed-list");
+    list_box.add_css_class("clipway-list");
     list_box.set_placeholder(Some(&placeholder));
 
     list_box
@@ -274,33 +411,49 @@ fn build_history_list() -> gtk::ListBox {
 
 fn build_search_entry() -> gtk::SearchEntry {
     let search_entry = gtk::SearchEntry::new();
-    search_entry.set_placeholder_text(Some("Search clipboard history"));
+    search_entry.add_css_class("clipway-search");
+    search_entry.set_placeholder_text(Some("搜索..."));
     search_entry.set_hexpand(true);
     search_entry
 }
 
 fn build_status_label() -> gtk::Label {
     let label = gtk::Label::new(None);
-    label.add_css_class("dim-label");
+    label.add_css_class("clipway-status");
     label.set_xalign(0.0);
     label.set_wrap(true);
     label
 }
 
-fn build_content(widgets: &AppWidgets) -> gtk::Box {
+fn build_content(
+    widgets: &AppWidgets,
+    prompt_label: &gtk::Label,
+    clear_button: &gtk::Button,
+    hide_button: &gtk::Button,
+) -> gtk::Box {
     let scroller = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .vexpand(true)
         .child(&widgets.list_box)
         .build();
+    let inputbar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let actions_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
 
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    content.set_margin_top(12);
-    content.set_margin_bottom(12);
-    content.set_margin_start(12);
-    content.set_margin_end(12);
+    scroller.set_min_content_height(300);
+    inputbar.add_css_class("clipway-inputbar");
+    actions_box.append(clear_button);
+    actions_box.append(hide_button);
+    inputbar.append(prompt_label);
+    inputbar.append(&widgets.search_entry);
+    inputbar.append(&actions_box);
+
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+    content.set_margin_start(10);
+    content.set_margin_end(10);
+    content.append(&inputbar);
     content.append(&widgets.status_label);
-    content.append(&widgets.search_entry);
     content.append(&scroller);
 
     content
@@ -310,14 +463,15 @@ fn refresh_view(
     widgets: &AppWidgets,
     storage: &Rc<RefCell<Storage>>,
     snapshot: &Rc<RefCell<ViewSnapshot>>,
+    window: &adw::ApplicationWindow,
     force: bool,
 ) {
     let signature = match storage.borrow().history_signature() {
         Ok(signature) => signature,
         Err(err) => {
-            widgets.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Failed to read clipboard history: {err:#}"
-            )));
+            widgets
+                .toast_overlay
+                .add_toast(adw::Toast::new(&format!("读取剪切板历史失败：{err:#}")));
             return;
         }
     };
@@ -333,13 +487,13 @@ fn refresh_view(
     if force || *snapshot.borrow() != current {
         match storage.borrow().recent_entries(HISTORY_PAGE_SIZE) {
             Ok(entries) => {
-                populate_entries(widgets, storage, snapshot, &query, entries);
+                populate_entries(widgets, storage, snapshot, window, &query, entries);
                 *snapshot.borrow_mut() = current.clone();
             }
             Err(err) => {
-                widgets.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Failed to load clipboard history: {err:#}"
-                )));
+                widgets
+                    .toast_overlay
+                    .add_toast(adw::Toast::new(&format!("加载剪切板历史失败：{err:#}")));
             }
         }
     }
@@ -351,6 +505,7 @@ fn populate_entries(
     widgets: &AppWidgets,
     storage: &Rc<RefCell<Storage>>,
     snapshot: &Rc<RefCell<ViewSnapshot>>,
+    window: &adw::ApplicationWindow,
     query: &str,
     entries: Vec<ClipboardEntry>,
 ) {
@@ -362,7 +517,13 @@ fn populate_entries(
         .into_iter()
         .filter(|entry| matches_query(entry, &normalized_query))
     {
-        let row = build_entry_row(entry, widgets.clone(), storage.clone(), snapshot.clone());
+        let row = build_entry_row(
+            entry,
+            widgets.clone(),
+            storage.clone(),
+            snapshot.clone(),
+            window.clone(),
+        );
         widgets.list_box.append(&row);
     }
 }
@@ -382,15 +543,19 @@ fn build_entry_row(
     widgets: AppWidgets,
     storage: Rc<RefCell<Storage>>,
     snapshot: Rc<RefCell<ViewSnapshot>>,
+    window: adw::ApplicationWindow,
 ) -> adw::ActionRow {
     let row = adw::ActionRow::new();
     let delete_button = gtk::Button::builder()
         .icon_name("user-trash-symbolic")
-        .tooltip_text("Delete this item")
+        .tooltip_text("删除这条记录")
         .valign(Align::Center)
         .build();
+    let kind_badge = build_kind_badge(&entry);
 
     delete_button.add_css_class("flat");
+    delete_button.add_css_class("clipway-danger-button");
+    row.add_css_class("clipway-row");
 
     let subtitle = build_row_subtitle(&entry);
     let title = match entry.kind {
@@ -400,7 +565,10 @@ fn build_entry_row(
 
     row.set_title(&title);
     row.set_subtitle(&subtitle);
+    row.set_title_lines(2);
+    row.set_subtitle_lines(1);
     row.set_activatable(true);
+    row.add_prefix(&kind_badge);
     row.add_suffix(&delete_button);
     row.set_tooltip_text(Some(&entry.content));
 
@@ -414,6 +582,7 @@ fn build_entry_row(
         let binary_content = entry.binary_content.clone();
         let kind = entry.kind.clone();
         let widgets = widgets.clone();
+        let window = window.clone();
 
         row.connect_activated(move |_| {
             let copy_result = match kind {
@@ -426,14 +595,12 @@ fn build_entry_row(
 
             match copy_result {
                 Ok(()) => {
-                    widgets
-                        .toast_overlay
-                        .add_toast(adw::Toast::new("Copied back to clipboard"));
+                    window.hide();
                 }
                 Err(err) => {
-                    widgets.toast_overlay.add_toast(adw::Toast::new(&format!(
-                        "Failed to write clipboard: {err:#}"
-                    )));
+                    widgets
+                        .toast_overlay
+                        .add_toast(adw::Toast::new(&format!("写入剪切板失败：{err:#}")));
                 }
             }
         });
@@ -444,18 +611,19 @@ fn build_entry_row(
         let storage = storage.clone();
         let snapshot = snapshot.clone();
         let entry_id = entry.id;
+        let window = window.clone();
 
         delete_button.connect_clicked(move |_| match storage.borrow().delete_entry(entry_id) {
             Ok(()) => {
                 widgets
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Clipboard item deleted"));
-                refresh_view(&widgets, &storage, &snapshot, true);
+                    .add_toast(adw::Toast::new("已删除这条记录"));
+                refresh_view(&widgets, &storage, &snapshot, &window, true);
             }
             Err(err) => {
-                widgets.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Failed to delete clipboard item: {err:#}"
-                )));
+                widgets
+                    .toast_overlay
+                    .add_toast(adw::Toast::new(&format!("删除记录失败：{err:#}")));
             }
         });
     }
@@ -465,27 +633,21 @@ fn build_entry_row(
 
 fn build_row_subtitle(entry: &ClipboardEntry) -> String {
     match entry.kind {
-        ClipboardEntryKind::Text => format!(
-            "#{}  {} | text | activate to copy",
-            entry.id, entry.created_at
-        ),
+        ClipboardEntryKind::Text => format!("#{} · {} · 文本", entry.id, entry.created_at),
         ClipboardEntryKind::Image => {
             let size = entry
                 .binary_content
                 .as_ref()
                 .map(|bytes| human_size(bytes.len() as u64))
-                .unwrap_or_else(|| String::from("unknown size"));
+                .unwrap_or_else(|| String::from("大小未知"));
 
             if let Some((width, height)) = image_dimensions(entry) {
                 format!(
-                    "#{}  {} | {}x{} | {} | activate to copy",
+                    "#{} · {} · {}x{} · {}",
                     entry.id, entry.created_at, width, height, size
                 )
             } else {
-                format!(
-                    "#{}  {} | {} | activate to copy",
-                    entry.id, entry.created_at, size
-                )
+                format!("#{} · {} · {}", entry.id, entry.created_at, size)
             }
         }
     }
@@ -497,10 +659,26 @@ fn build_image_prefix(entry: &ClipboardEntry) -> Option<gtk::Picture> {
         gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_owned(bytes.clone())).ok()?;
 
     let picture = gtk::Picture::new();
+    picture.add_css_class("clipway-thumb");
     picture.set_paintable(Some(&texture));
     picture.set_size_request(72, 72);
 
     Some(picture)
+}
+
+fn build_kind_badge(entry: &ClipboardEntry) -> gtk::Label {
+    let label = gtk::Label::new(Some(match entry.kind {
+        ClipboardEntryKind::Text => "文本",
+        ClipboardEntryKind::Image => "图片",
+    }));
+
+    label.add_css_class("clipway-kind-badge");
+    match entry.kind {
+        ClipboardEntryKind::Text => label.add_css_class("clipway-kind-badge-text"),
+        ClipboardEntryKind::Image => label.add_css_class("clipway-kind-badge-image"),
+    }
+
+    label
 }
 
 fn image_dimensions(entry: &ClipboardEntry) -> Option<(i32, i32)> {
@@ -515,7 +693,7 @@ fn preview_text(content: &str) -> String {
 
     let normalized = content.split_whitespace().collect::<Vec<_>>().join(" ");
     let preview = if normalized.is_empty() {
-        String::from("[whitespace only]")
+        String::from("[仅空白字符]")
     } else {
         normalized
     };
@@ -556,43 +734,43 @@ fn present_window(
         window.set_startup_id(token);
     }
 
-    refresh_view(widgets, storage, snapshot, true);
+    refresh_view(widgets, storage, snapshot, window, true);
     window.present();
     let _ = widgets.search_entry.grab_focus();
 }
 
 fn set_status_label(widgets: &AppWidgets, database_path: &std::path::Path, snapshot: ViewSnapshot) {
     let daemon_state = if snapshot.daemon_running {
-        "Background capture is running"
+        "正在监听剪切板"
     } else {
-        "Background capture is not running"
+        "后台监听未运行"
     };
 
     let search_state = if snapshot.query.trim().is_empty() {
-        String::from("showing all items")
+        String::from("全部记录")
     } else {
-        format!("search: \"{}\"", snapshot.query.trim())
+        format!("筛选：{}", snapshot.query.trim())
     };
 
     widgets.status_label.set_text(&format!(
-        "{} | {} items stored | {} | {}",
-        daemon_state,
-        snapshot.signature.count,
-        search_state,
-        database_path.display()
+        "{} · 共 {} 条 · {} · Esc 收起",
+        daemon_state, snapshot.signature.count, search_state
     ));
+    widgets
+        .status_label
+        .set_tooltip_text(Some(&format!("数据库位置：{}", database_path.display())));
 }
 
 fn present_fatal_window(app: &adw::Application, message: &str) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("Clipway")
+        .title("剪切板历史")
         .default_width(520)
         .default_height(220)
         .build();
 
     let container = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    let title = gtk::Label::new(Some("Clipway could not start"));
+    let title = gtk::Label::new(Some("Clipway 启动失败"));
     let detail = gtk::Label::new(Some(message));
 
     title.add_css_class("title-3");
@@ -678,4 +856,56 @@ impl Drop for GuiSocketListener {
 
         let _ = std::fs::remove_file(&self.path);
     }
+}
+
+fn install_app_css() {
+    let Some(display) = gtk::gdk::Display::default() else {
+        return;
+    };
+
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data(APP_CSS);
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+}
+
+fn configure_popup_window(window: &adw::ApplicationWindow) {
+    if !gtk4_layer_shell::is_supported() {
+        return;
+    }
+
+    window.init_layer_shell();
+    window.set_namespace(Some("clipway"));
+    window.set_layer(LayerShellLayer::Overlay);
+    window.set_anchor(LayerShellEdge::Top, true);
+    window.set_margin(LayerShellEdge::Top, 12);
+    window.set_keyboard_mode(LayerShellKeyboardMode::Exclusive);
+}
+
+fn add_window_shortcuts(window: &adw::ApplicationWindow) {
+    let controller = gtk::EventControllerKey::new();
+    let window = window.clone();
+    let window_for_escape = window.clone();
+
+    controller.connect_key_pressed(move |_, key, _, _| {
+        if key == gtk::gdk::Key::Escape {
+            window_for_escape.hide();
+            return gtk::glib::Propagation::Stop;
+        }
+
+        gtk::glib::Propagation::Proceed
+    });
+
+    window.add_controller(controller);
+}
+
+fn add_focus_behavior(window: &adw::ApplicationWindow) {
+    window.connect_is_active_notify(|window| {
+        if window.is_visible() && !window.is_active() {
+            window.hide();
+        }
+    });
 }

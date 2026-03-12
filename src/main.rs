@@ -21,9 +21,9 @@ fn run() -> Result<()> {
     match parse_command()? {
         Command::Gui { activation_token } => {
             let startup_notice = match daemon::ensure_running() {
-                Ok(true) => Some(String::from("Clipway background capture started")),
+                Ok(true) => Some(String::from("已启动后台剪切板监听")),
                 Ok(false) => None,
-                Err(err) => Some(format!("Background capture could not start: {err:#}")),
+                Err(err) => Some(format!("后台剪切板监听启动失败：{err:#}")),
             };
 
             if app::send_toggle_request(activation_token.clone())? {

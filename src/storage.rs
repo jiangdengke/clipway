@@ -281,7 +281,7 @@ fn image_summary(content_type: &str, byte_len: usize) -> String {
         .unwrap_or(content_type)
         .to_ascii_uppercase();
 
-    format!("{kind} image | {}", human_size(byte_len as u64))
+    format!("{kind} 图片 | {}", human_size(byte_len as u64))
 }
 
 pub fn human_size(bytes: u64) -> String {
