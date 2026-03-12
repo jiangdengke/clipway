@@ -6,6 +6,7 @@ WARN_COUNT=0
 FAIL_COUNT=0
 
 TARGET=${1:-${CLIPWAY_BIN:-clipway}}
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 pass() {
     PASS_COUNT=$((PASS_COUNT + 1))
@@ -25,6 +26,11 @@ fail() {
 resolve_binary() {
     if [ -x "$TARGET" ]; then
         printf '%s\n' "$TARGET"
+        return 0
+    fi
+
+    if [ "$TARGET" = "clipway" ] && [ -x "$SCRIPT_DIR/clipway" ]; then
+        printf '%s\n' "$SCRIPT_DIR/clipway"
         return 0
     fi
 

@@ -51,6 +51,9 @@ jobs:
       - name: Build release
         run: cargo build --locked --release
 
+      - name: Package release archive
+        run: ./packaging/linux/package-release.sh
+
       - name: Compile tests
         run: cargo test --locked --no-run
 
@@ -62,3 +65,9 @@ jobs:
           test -x "$PREFIX_DIR/bin/clipway-self-check"
           "$PREFIX_DIR/bin/clipway" help >/dev/null
           CLIPWAY_BIN="$PREFIX_DIR/bin/clipway" "$PREFIX_DIR/bin/clipway-self-check"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipway-linux-package
+          path: dist/*.tar.gz

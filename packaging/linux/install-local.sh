@@ -72,3 +72,9 @@ if [ "$WITH_SYSTEMD" -eq 1 ]; then
 fi
 
 echo "Installed Clipway into $PREFIX"
+echo "Run: $BIN_DIR/clipway-self-check"
+
+if ! printf '%s' ":$PATH:" | grep -q ":$BIN_DIR:"; then
+    echo "Note: $BIN_DIR is not in PATH for this shell."
+    echo "Add it to your shell profile or run Clipway with absolute paths."
+fi

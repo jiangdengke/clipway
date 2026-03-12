@@ -96,12 +96,32 @@ sudo ./packaging/linux/install-system.sh
 
 Both install scripts also install a helper command named `clipway-self-check`.
 
+Portable release package:
+
+```bash
+./packaging/linux/package-release.sh
+```
+
+This produces a tarball under `dist/`, for example:
+
+```bash
+dist/clipway-0.1.0-linux-x86_64.tar.gz
+```
+
+Unpack it anywhere and run `bin/clipway` directly, or copy `bin/clipway` and `bin/clipway-self-check` into your preferred prefix.
+
 ## Post-Install Self-Check
 
 After installation, run:
 
 ```bash
 clipway-self-check
+```
+
+If you installed to `~/.local/bin` but that directory is not yet in your `PATH`, run:
+
+```bash
+~/.local/bin/clipway-self-check
 ```
 
 Or against a custom binary path:

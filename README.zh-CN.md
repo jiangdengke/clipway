@@ -96,12 +96,32 @@ sudo ./packaging/linux/install-system.sh
 
 两个安装脚本都会额外安装一个辅助命令：`clipway-self-check`。
 
+便携式 release 打包：
+
+```bash
+./packaging/linux/package-release.sh
+```
+
+它会在 `dist/` 下生成一个压缩包，例如：
+
+```bash
+dist/clipway-0.1.0-linux-x86_64.tar.gz
+```
+
+解压后可以直接运行其中的 `bin/clipway`，也可以把 `bin/clipway` 和 `bin/clipway-self-check` 拷贝到你想要的安装前缀。
+
 ## 安装后自检
 
 安装完成后可执行：
 
 ```bash
 clipway-self-check
+```
+
+如果你安装到了 `~/.local/bin`，但当前 shell 还没有把它加入 `PATH`，可以直接执行：
+
+```bash
+~/.local/bin/clipway-self-check
 ```
 
 或者针对某个自定义二进制路径执行：
