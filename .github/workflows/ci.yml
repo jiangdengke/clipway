@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            desktop-file-utils \
+            libadwaita-1-dev \
+            libgtk-4-dev \
+            pkg-config \
+            wl-clipboard
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Check desktop files
+        run: desktop-file-validate packaging/linux/*.desktop
+
+      - name: Check shell scripts
+        run: sh -n packaging/linux/install-local.sh packaging/linux/install-system.sh packaging/linux/self-check.sh
+
+      - name: Build debug
+        run: cargo check --locked
+
+      - name: Build release
+        run: cargo build --locked --release
+
+      - name: Compile tests
+        run: cargo test --locked --no-run
+
+      - name: Smoke test local install
+        run: |
+          PREFIX_DIR="$RUNNER_TEMP/clipway-root"
+          ./packaging/linux/install-local.sh --prefix="$PREFIX_DIR"
+          test -x "$PREFIX_DIR/bin/clipway"
+          test -x "$PREFIX_DIR/bin/clipway-self-check"
+          "$PREFIX_DIR/bin/clipway" help >/dev/null
+          CLIPWAY_BIN="$PREFIX_DIR/bin/clipway" "$PREFIX_DIR/bin/clipway-self-check"

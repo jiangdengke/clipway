@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Clipway Tray
+Comment=Start Clipway as a tray resident clipboard history app
+Exec=clipway tray
+Icon=edit-paste
+Terminal=false
+X-GNOME-Autostart-enabled=true
+Hidden=false

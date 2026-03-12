@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Clipway Daemon
+Comment=Start Clipway clipboard capture in the background
+Exec=clipway daemon
+Terminal=false
+X-GNOME-Autostart-enabled=true
+Hidden=false

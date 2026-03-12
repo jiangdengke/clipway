@@ -1,0 +1,12 @@
+[Unit]
+Description=Clipway clipboard history daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env clipway daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

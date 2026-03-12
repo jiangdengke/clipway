@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Clipway
+Comment=Browse clipboard history
+Exec=clipway
+Icon=edit-paste
+Terminal=false
+Categories=Utility;
+StartupNotify=true

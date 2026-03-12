@@ -1,0 +1,15 @@
+[package]
+name = "clipway"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+adw = { package = "libadwaita", version = "0.8" }
+anyhow = "1.0"
+dirs = "6.0"
+fs2 = "0.4"
+gtk = { package = "gtk4", version = "0.10", features = ["v4_6"] }
+ksni = { version = "0.3", features = ["blocking"] }
+libc = "0.2"
+rusqlite = { version = "0.37", features = ["bundled"] }
+sha2 = "0.10"
