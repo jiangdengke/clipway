@@ -101,23 +101,6 @@ searchentry.clipway-search image {
     border: 1px solid rgba(224, 222, 244, 0.10);
 }
 
-.clipway-kind-badge {
-    padding: 5px 9px;
-    border-radius: 999px;
-    font-size: 9pt;
-    font-weight: 700;
-}
-
-.clipway-kind-badge-text {
-    background: rgba(156, 207, 216, 0.18);
-    color: #9ccfd8;
-}
-
-.clipway-kind-badge-image {
-    background: rgba(246, 193, 119, 0.18);
-    color: #f6c177;
-}
-
 .clipway-action-button,
 .clipway-danger-button {
     min-width: 32px;
@@ -551,7 +534,6 @@ fn build_entry_row(
         .tooltip_text("删除这条记录")
         .valign(Align::Center)
         .build();
-    let kind_badge = build_kind_badge(&entry);
 
     delete_button.add_css_class("flat");
     delete_button.add_css_class("clipway-danger-button");
@@ -568,7 +550,6 @@ fn build_entry_row(
     row.set_title_lines(2);
     row.set_subtitle_lines(1);
     row.set_activatable(true);
-    row.add_prefix(&kind_badge);
     row.add_suffix(&delete_button);
     row.set_tooltip_text(Some(&entry.content));
 
@@ -633,7 +614,7 @@ fn build_entry_row(
 
 fn build_row_subtitle(entry: &ClipboardEntry) -> String {
     match entry.kind {
-        ClipboardEntryKind::Text => format!("#{} · {} · 文本", entry.id, entry.created_at),
+        ClipboardEntryKind::Text => format!("#{} · {}", entry.id, entry.created_at),
         ClipboardEntryKind::Image => {
             let size = entry
                 .binary_content
@@ -664,21 +645,6 @@ fn build_image_prefix(entry: &ClipboardEntry) -> Option<gtk::Picture> {
     picture.set_size_request(72, 72);
 
     Some(picture)
-}
-
-fn build_kind_badge(entry: &ClipboardEntry) -> gtk::Label {
-    let label = gtk::Label::new(Some(match entry.kind {
-        ClipboardEntryKind::Text => "文本",
-        ClipboardEntryKind::Image => "图片",
-    }));
-
-    label.add_css_class("clipway-kind-badge");
-    match entry.kind {
-        ClipboardEntryKind::Text => label.add_css_class("clipway-kind-badge-text"),
-        ClipboardEntryKind::Image => label.add_css_class("clipway-kind-badge-image"),
-    }
-
-    label
 }
 
 fn image_dimensions(entry: &ClipboardEntry) -> Option<(i32, i32)> {
