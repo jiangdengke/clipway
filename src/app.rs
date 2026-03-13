@@ -85,20 +85,31 @@ searchentry.clipway-search image {
 .clipway-row {
     margin: 3px 0;
     border-radius: 12px;
-    background: #2a2a37;
-    border: 1px solid rgba(224, 222, 244, 0.06);
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    color: #111827;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .clipway-row:hover,
 .clipway-row:focus-within {
-    background: #363646;
-    border-color: rgba(156, 207, 216, 0.34);
+    background: #f3f4f6;
+    border-color: rgba(156, 207, 216, 0.72);
+}
+
+.clipway-row label.title {
+    color: #111827;
+    font-weight: 700;
+}
+
+.clipway-row label.subtitle {
+    color: #4b5563;
 }
 
 .clipway-thumb {
     border-radius: 10px;
-    background: #2a2a37;
-    border: 1px solid rgba(224, 222, 244, 0.10);
+    background: #f3f4f6;
+    border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .clipway-action-button,
@@ -106,17 +117,18 @@ searchentry.clipway-search image {
     min-width: 32px;
     min-height: 32px;
     border-radius: 8px;
-    background: #363646;
-    color: #e0def4;
+    background: #ffffff;
+    color: #111827;
+    border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .clipway-action-button:hover,
 .clipway-danger-button:hover {
-    background: #404053;
+    background: #f3f4f6;
 }
 
 .clipway-danger-button {
-    color: #eb6f92;
+    color: #be123c;
 }
 
 .clipway-empty-title {
