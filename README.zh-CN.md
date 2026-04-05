@@ -87,6 +87,30 @@ cargo build --release
 - systemd user service
 - 本地安装与系统安装脚本
 
+如果你是最终用户，推荐优先使用 GitHub Releases 里的预编译包，而不是直接拉源码构建。
+在已经存在 release 的前提下，可以直接执行在线安装脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh | sh -s -- --with-autostart
+```
+
+这条命令会下载最新 release，安装到 `~/.local/bin`，并写入 tray 自启动项。
+如果你不想用管道执行，也可以先下载脚本再运行：
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh
+sh install-release.sh --with-autostart
+```
+
+如果当前仓库还没有任何 release，需要先推一个和 `Cargo.toml` 版本一致的 tag，例如：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+这个 tag 会触发 release workflow，自动构建并上传 `tar.gz` 和 `.sha256` 到 GitHub Releases。
+
 用户本地安装：
 
 ```bash
@@ -115,6 +139,7 @@ dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
 ```
 
 解压后可以直接运行其中的 `bin/clipway`，也可以把 `bin/clipway` 和 `bin/clipway-self-check` 拷贝到你想要的安装前缀。
+压缩包里也包含 `.desktop` 文件和 user systemd service 模板，方便二次分发或写自己的安装器。
 
 ## GitHub Releases
 

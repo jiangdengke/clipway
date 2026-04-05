@@ -9,6 +9,7 @@ PACKAGE_BASENAME="clipway-${VERSION}-linux-${ARCH}"
 STAGE_DIR="$DIST_DIR/$PACKAGE_BASENAME"
 BIN_DIR="$STAGE_DIR/bin"
 APP_DIR="$STAGE_DIR/share/applications"
+SYSTEMD_DIR="$STAGE_DIR/lib/systemd/user"
 ARCHIVE_PATH="$DIST_DIR/$PACKAGE_BASENAME.tar.gz"
 CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
 
@@ -16,7 +17,7 @@ cd "$ROOT_DIR"
 cargo build --locked --release
 
 rm -rf "$STAGE_DIR"
-mkdir -p "$BIN_DIR" "$APP_DIR"
+mkdir -p "$BIN_DIR" "$APP_DIR" "$SYSTEMD_DIR"
 install -m 755 "$ROOT_DIR/target/release/clipway" "$BIN_DIR/clipway"
 install -m 755 "$ROOT_DIR/packaging/linux/self-check.sh" "$BIN_DIR/clipway-self-check"
 install -m 644 "$ROOT_DIR/README.md" "$STAGE_DIR/README.md"
@@ -29,6 +30,14 @@ sed "s|Exec=clipway$|Exec=clipway|g" \
 sed "s|Exec=clipway tray|Exec=clipway tray|g" \
     "$ROOT_DIR/packaging/linux/clipway-tray.desktop" \
     > "$APP_DIR/clipway-tray.desktop"
+
+sed "s|Exec=clipway daemon|Exec=clipway daemon|g" \
+    "$ROOT_DIR/packaging/linux/clipway-daemon.desktop" \
+    > "$APP_DIR/clipway-daemon.desktop"
+
+sed "s|ExecStart=/usr/bin/env clipway daemon|ExecStart=/usr/bin/env clipway daemon|g" \
+    "$ROOT_DIR/packaging/linux/clipway.service" \
+    > "$SYSTEMD_DIR/clipway.service"
 
 tar -C "$DIST_DIR" -czf "$ARCHIVE_PATH" "$PACKAGE_BASENAME"
 (

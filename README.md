@@ -87,6 +87,30 @@ The `packaging/linux` directory contains:
 - a systemd user service
 - local and system install scripts
 
+If you are distributing Clipway to end users, prefer the prebuilt GitHub Releases package instead of asking users to clone the repository and build from source.
+Once a release exists, users can install the latest version directly with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh | sh -s -- --with-autostart
+```
+
+This downloads the latest release, installs it into `~/.local/bin`, and writes the tray autostart entry.
+If you do not want to pipe into `sh`, download the script first:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh
+sh install-release.sh --with-autostart
+```
+
+If the repository does not have any releases yet, create the first one by pushing a tag that matches `Cargo.toml`, for example:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+That tag triggers the release workflow and uploads the `tar.gz` archive plus `.sha256` file to GitHub Releases.
+
 User-local install:
 
 ```bash
@@ -115,6 +139,7 @@ dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
 ```
 
 Unpack it anywhere and run `bin/clipway` directly, or copy `bin/clipway` and `bin/clipway-self-check` into your preferred prefix.
+The archive also includes desktop entry files and a user systemd service template for repackaging or custom installers.
 
 ## GitHub Releases
 
