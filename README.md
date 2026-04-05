@@ -2,99 +2,52 @@
 
 [中文说明](./README.zh-CN.md)
 
-Clipway is a Wayland clipboard history app for Linux built with Rust, GTK4/libadwaita, SQLite, `wl-clipboard`, `gtk4-layer-shell`, and a StatusNotifier tray entry.
+## Introduction
 
-Current scope:
+Clipway is a clipboard history tool for Linux on Wayland, built with Rust, GTK4/libadwaita, SQLite, `wl-clipboard`, `gtk4-layer-shell`, and a StatusNotifier tray entry.
 
-- Persistent text and image clipboard history stored in SQLite
-- Background daemon mode so capture continues after the GUI closes
-- A `gtk4-layer-shell` popup panel closer to rofi in behavior, with search, PNG thumbnails, delete, clear, and copy-then-hide interaction
-- Tray resident mode so Clipway can stay available without an open window
-- Small CLI for listing, clearing, and restoring saved items
+The project is aimed at a popup-first workflow rather than a traditional always-open window:
 
-## Dependencies
+- keep collecting clipboard history in the background
+- summon a compact panel when you need to search or restore items
+- optionally stay resident in the tray, or fall back to daemon-only mode
+- keep a small CLI for scripting and debugging
 
-On Arch Linux:
+## Highlights
+
+- Persistent clipboard history for text and `image/png`
+- Background daemon mode that continues collecting after the GUI closes
+- Top popup panel built with `gtk4-layer-shell`, with search, thumbnails, delete, and clear actions
+- Copy-back interaction that restores an item and hides the panel
+- Tray resident mode for quick access without leaving a main window open
+- Small CLI for listing, restoring, and clearing history
+
+## Installation
+
+### Runtime Dependencies
+
+Arch Linux example:
 
 ```bash
 sudo pacman -S --needed gtk4 gtk4-layer-shell libadwaita wl-clipboard xdg-desktop-portal
 ```
 
-Rust and Cargo are required to build the app.
-
-For the tray icon:
-
-- KDE, Hyprland, and many SNI-capable desktops work directly.
-- GNOME usually needs an AppIndicator/StatusNotifier extension to show the tray icon.
-
-## CI
-
-GitHub Actions CI is defined in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
-It currently checks:
-
-- `cargo fmt --check`
-- `cargo check --locked`
-- `cargo build --locked --release`
-- `cargo test --locked --no-run`
-- desktop entry validation
-- shell script syntax
-- a local install smoke test
-
-## Run In Development
-
-```bash
-cargo run
-```
-
-This opens the popup history panel and auto-starts the background daemon if it is not already running.
-
-Tray mode:
-
-```bash
-cargo run -- tray
-```
-
 Notes:
 
-- `clipway gui` only opens the popup panel; it does not create a tray icon by itself
-- If you want a tray entry, run `clipway tray` separately
+- Rust and Cargo are required if you want to build from source
+- KDE, Hyprland, and many SNI-capable desktops can usually show the tray directly
+- GNOME usually needs an AppIndicator or StatusNotifier extension for the tray icon
 
-## CLI Commands
+### End-User Install
 
-```bash
-cargo run -- daemon
-cargo run -- tray
-cargo run -- list
-cargo run -- list 50
-cargo run -- copy 12
-cargo run -- clear
-```
-
-## Release Build
-
-```bash
-cargo build --release
-./target/release/clipway
-```
-
-## Install Notes
-
-The `packaging/linux` directory contains:
-
-- a desktop launcher
-- a tray autostart desktop entry
-- a daemon-only autostart desktop entry
-- a systemd user service
-- local and system install scripts
-
-If you are distributing Clipway to end users, prefer the prebuilt GitHub Releases package instead of asking users to clone the repository and build from source.
-Once a release exists, users can install the latest version directly with:
+If the repository already has GitHub Releases, the preferred path is to install the prebuilt package:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh | sh -s -- --with-autostart
 ```
 
 This downloads the latest release, installs it into `~/.local/bin`, and writes the tray autostart entry.
+
 If you do not want to pipe into `sh`, download the script first:
 
 ```bash
@@ -102,14 +55,15 @@ curl -fsSLO https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging
 sh install-release.sh --with-autostart
 ```
 
-If the repository does not have any releases yet, create the first one by pushing a tag that matches `Cargo.toml`, for example:
+If the repository does not have a release yet, the fallback is to clone and install from source:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git clone https://github.com/jiangdengke/clipway.git
+cd clipway
+./packaging/linux/install-local.sh --with-autostart
 ```
 
-That tag triggers the release workflow and uploads the `tar.gz` archive plus `.sha256` file to GitHub Releases.
+### Install From Source
 
 User-local install:
 
@@ -123,86 +77,72 @@ System-wide install:
 sudo ./packaging/linux/install-system.sh
 ```
 
-Both install scripts also install a helper command named `clipway-self-check`.
+Both scripts:
 
-Portable release package:
+- build the release binary
+- install `clipway`
+- install `clipway-self-check`
 
-```bash
-./packaging/linux/package-release.sh
-```
+`install-local.sh` also supports:
 
-This produces a tarball and checksum under `dist/`, for example:
+- `--prefix=PATH`
+- `--with-autostart`
+- `--with-systemd`
 
-```bash
-dist/clipway-0.1.0-linux-x86_64.tar.gz
-dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
-```
+## Usage
 
-Unpack it anywhere and run `bin/clipway` directly, or copy `bin/clipway` and `bin/clipway-self-check` into your preferred prefix.
-The archive also includes desktop entry files and a user systemd service template for repackaging or custom installers.
+### Common Commands
 
-## GitHub Releases
-
-The CI workflow uploads package artifacts for every push and pull request. To publish the same package on GitHub Releases, push a version tag that matches `Cargo.toml`, for example:
+Open the popup panel and ensure the background watcher is running:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+clipway
 ```
 
-The release workflow builds the archive, writes a `.sha256` file, and attaches both files to the GitHub Release for that tag.
-
-## Post-Install Self-Check
-
-After installation, run:
+Open only the panel:
 
 ```bash
-clipway-self-check
+clipway gui
 ```
 
-If you installed to `~/.local/bin` but that directory is not yet in your `PATH`, run:
+Start tray resident mode:
 
 ```bash
-~/.local/bin/clipway-self-check
+clipway tray
 ```
 
-Or against a custom binary path:
+Run only the background watcher, without the tray:
 
 ```bash
-./packaging/linux/self-check.sh /absolute/path/to/clipway
+clipway daemon
 ```
 
-The self-check reports:
+### CLI
 
-- whether the `clipway` binary is callable
-- whether `wl-copy` and `wl-paste` are available
-- whether you are currently in a Wayland session
-- whether `xdg-desktop-portal` and the GlobalShortcuts interface are visible on the user bus
-- whether a StatusNotifier watcher is present for tray support
-- desktop-specific warnings for GNOME, KDE Plasma, and wlroots desktops
+```bash
+clipway list
+clipway list 50
+clipway copy 12
+clipway clear
+clipway help
+```
 
-Warnings mean "feature may degrade on this desktop". Failures mean the install is incomplete.
+What they do:
 
-## Desktop Compatibility
+- `list`: print recent items
+- `copy <id>`: restore one saved item back to the clipboard
+- `clear`: remove the full history
+- `help`: print usage
 
-Clipway is designed for Linux on Wayland. Current support level:
+### Recommended Workflow
 
-- KDE Plasma Wayland: best-supported target. Clipboard history, tray mode, and portal-based integrations fit this desktop well.
-- GNOME Wayland: clipboard capture works, but tray mode usually needs an AppIndicator or StatusNotifier shell extension.
-- wlroots desktops such as Hyprland, Sway, and niri: clipboard capture works if `wl-clipboard` is installed; tray visibility depends on the panel or bar implementing StatusNotifier.
-- X11 sessions: not supported.
+A practical setup is:
 
-Operational notes:
+1. start `clipway tray` at login, or run `clipway daemon`
+2. bind a global shortcut to `clipway gui`
+3. use the popup panel for search, preview, and restore
 
-- `clipway daemon` is the safest fallback if tray support is missing on a desktop.
-- Portal-dependent features can vary across desktop implementations and portal backend versions.
-- If `clipway-self-check` warns about missing tray or portal support, the clipboard history core can still work.
-
-## Summon Shortcut
-
-On wlroots compositors, the practical way to summon Clipway is to let the compositor bind a key to `clipway gui`. The command already toggles or presents the existing Clipway window if one is running.
-
-niri example in `~/.config/niri/config.kdl`:
+On wlroots compositors, it is usually better to let the compositor own the shortcut instead of making the app listen for global keys. Example for niri:
 
 ```kdl
 binds {
@@ -212,27 +152,112 @@ binds {
 
 Notes:
 
-- If `clipway` is already in your `PATH`, `spawn "clipway" "gui";` is enough.
-- niri `spawn` does not use a shell, so the binary path and each argument must be quoted separately.
-- niri live-reloads the config; run `niri validate` if you want to check the file before saving.
-- With `gtk4-layer-shell` installed, Clipway opens as a top popup panel on wlroots compositors and does not need an extra niri floating rule.
-- If you want history collection to start at login, enable the tray autostart entry or run the daemon through your session startup.
-- If you upgraded from an older build, run `pkill -f '/home/jdk/.local/bin/clipway gui'` once so the next shortcut launch starts the new popup panel instead of toggling the old normal window instance.
+- If `clipway` is already in your `PATH`, `spawn "clipway" "gui";` is enough
+- `clipway gui` only opens the panel; it does not create a tray icon by itself
+- If your desktop does not support tray icons well, `clipway daemon` is the safest fallback
 
-If layer-shell is unavailable on your desktop, you can still fall back to a normal floating window with a niri rule:
+## Post-Install Self-Check
 
-```kdl
-window-rule {
-    match app-id=r#"^io\.github\.jdk\.clipway$"#
-    open-floating true
-    default-floating-position x=0 y=24 relative-to="top"
-    default-column-width { proportion 0.55; }
-    default-window-height { proportion 0.72; }
-}
+After installation, it is worth running:
+
+```bash
+clipway-self-check
 ```
 
-This fallback anchors the window to the top-center area of the screen and gives it a palette-like size.
+If `~/.local/bin` is not yet in your shell `PATH`, run:
 
-## Current Limitation
+```bash
+~/.local/bin/clipway-self-check
+```
 
-This version supports text and `image/png` clipboard history. Rich text, files, and other MIME types are not implemented yet.
+Or point it to a specific binary:
+
+```bash
+./packaging/linux/self-check.sh /absolute/path/to/clipway
+```
+
+The self-check verifies:
+
+- whether `clipway` is callable
+- whether `wl-copy` and `wl-paste` are installed
+- whether the current session is Wayland
+- whether `xdg-desktop-portal` and GlobalShortcuts are visible
+- whether a StatusNotifier watcher is available for tray support
+
+`WARN` means a feature may degrade on the current desktop. `FAIL` means the installation is incomplete.
+
+## Desktop Compatibility
+
+Clipway currently targets Linux on Wayland only:
+
+- KDE Plasma Wayland: the best-supported environment right now
+- GNOME Wayland: clipboard capture works, but tray mode often needs an extra shell extension
+- wlroots desktops such as Hyprland, Sway, and niri: core clipboard history works; tray visibility depends on the panel or bar implementing StatusNotifier
+- X11: unsupported
+
+## Current Limitations
+
+Current support:
+
+- text
+- `image/png`
+
+Not implemented yet:
+
+- rich text
+- file lists
+- other MIME types
+
+## Development And Release
+
+Run in development:
+
+```bash
+cargo run
+```
+
+Tray mode:
+
+```bash
+cargo run -- tray
+```
+
+Build the release package:
+
+```bash
+./packaging/linux/package-release.sh
+```
+
+This produces:
+
+```bash
+dist/clipway-0.1.0-linux-x86_64.tar.gz
+dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
+```
+
+To publish the package on GitHub Releases, push a tag that matches the version in `Cargo.toml`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The CI workflow lives in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) and the release workflow lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
+
+## Acknowledgements
+
+Clipway builds on top of these projects and ecosystems:
+
+- Rust
+- GTK4 and libadwaita
+- `gtk4-layer-shell`
+- `wl-clipboard`
+- SQLite and `rusqlite`
+- StatusNotifier and `ksni`
+- the broader Wayland and `xdg-desktop-portal` ecosystem
+
+## License
+
+This repository does not currently include a formal `LICENSE` file.
+
+Until one is added, downstream users should not assume the project has been published under an open-source license. If you plan to distribute it publicly, accept external contributions, or let third parties package it, add an explicit license text first.

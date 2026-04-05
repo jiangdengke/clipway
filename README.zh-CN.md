@@ -2,99 +2,52 @@
 
 [English README](./README.md)
 
-Clipway 是一个运行在 Linux Wayland 环境下的剪切板历史应用，使用 Rust、GTK4/libadwaita、SQLite、`wl-clipboard`、`gtk4-layer-shell` 和 StatusNotifier tray 实现。
+## 介绍
 
-当前能力：
+Clipway 是一个面向 Linux Wayland 的剪切板历史工具，使用 Rust、GTK4/libadwaita、SQLite、`wl-clipboard`、`gtk4-layer-shell` 和 StatusNotifier tray 构建。
 
-- 持久化保存文本和图片剪切板历史到 SQLite
-- 后台 daemon 模式，关闭窗口后仍可继续记录剪切板
-- 基于 `gtk4-layer-shell` 的呼出式面板，风格更接近 rofi，支持搜索、PNG 缩略图、删除、清空，以及点击后复制并自动收起
-- 托盘常驻模式，无需一直打开主窗口
-- 提供简单 CLI，可列出、清空和恢复历史项
+它的目标不是做一个常驻的大窗口应用，而是提供更接近 rofi 的呼出式面板体验：
 
-## 依赖
+- 后台持续记录文本和图片剪切板历史
+- 需要时快速呼出面板搜索、预览、恢复历史项
+- 可选 tray 常驻，或者退化为纯 daemon 模式
+- 保留简单 CLI，方便脚本化和调试
 
-在 Arch Linux 上：
+## 功能亮点
+
+- 文本和 `image/png` 剪切板历史持久化到 SQLite
+- 后台 daemon 模式，关闭窗口后仍继续记录
+- 基于 `gtk4-layer-shell` 的顶部弹出面板，支持搜索、缩略图、删除和清空
+- 点击历史项后自动复制回剪切板并收起
+- tray 常驻模式，无需一直保留主窗口
+- CLI 支持列出、恢复、清空历史
+
+## 安装
+
+### 运行时依赖
+
+Arch Linux 示例：
 
 ```bash
 sudo pacman -S --needed gtk4 gtk4-layer-shell libadwaita wl-clipboard xdg-desktop-portal
 ```
 
-还需要安装 Rust 和 Cargo。
+补充说明：
 
-关于托盘图标：
+- 如果需要从源码构建，还需要安装 Rust 和 Cargo
+- KDE、Hyprland 以及许多支持 SNI 的桌面通常可以直接显示 tray
+- GNOME 通常需要 AppIndicator 或 StatusNotifier 扩展才能显示 tray 图标
 
-- KDE、Hyprland 以及许多支持 SNI 的桌面环境通常可以直接显示
-- GNOME 一般需要安装 AppIndicator 或 StatusNotifier 扩展后才能显示托盘图标
+### 最终用户安装
 
-## CI
-
-GitHub Actions CI 配置位于 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)。
-当前会自动检查：
-
-- `cargo fmt --check`
-- `cargo check --locked`
-- `cargo build --locked --release`
-- `cargo test --locked --no-run`
-- `.desktop` 文件合法性
-- shell 脚本语法
-- 本地安装 smoke test
-
-## 开发运行
-
-```bash
-cargo run
-```
-
-这会启动呼出式历史面板，并在后台 daemon 未运行时自动拉起它。
-
-托盘模式：
-
-```bash
-cargo run -- tray
-```
-
-说明：
-
-- `clipway gui` 只负责呼出面板，不会自动显示托盘图标
-- 如果你需要托盘入口，需要单独运行 `clipway tray`
-
-## CLI 命令
-
-```bash
-cargo run -- daemon
-cargo run -- tray
-cargo run -- list
-cargo run -- list 50
-cargo run -- copy 12
-cargo run -- clear
-```
-
-## Release 构建
-
-```bash
-cargo build --release
-./target/release/clipway
-```
-
-## 安装说明
-
-`packaging/linux` 目录包含：
-
-- 桌面启动器
-- tray 自动启动 desktop 文件
-- daemon 自动启动 desktop 文件
-- systemd user service
-- 本地安装与系统安装脚本
-
-如果你是最终用户，推荐优先使用 GitHub Releases 里的预编译包，而不是直接拉源码构建。
-在已经存在 release 的前提下，可以直接执行在线安装脚本：
+如果仓库已经发布了 GitHub Release，推荐直接安装预编译版本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging/linux/install-release.sh | sh -s -- --with-autostart
 ```
 
-这条命令会下载最新 release，安装到 `~/.local/bin`，并写入 tray 自启动项。
+这会下载最新 release，安装到 `~/.local/bin`，并写入 tray 自启动项。
+
 如果你不想用管道执行，也可以先下载脚本再运行：
 
 ```bash
@@ -102,14 +55,15 @@ curl -fsSLO https://raw.githubusercontent.com/jiangdengke/clipway/main/packaging
 sh install-release.sh --with-autostart
 ```
 
-如果当前仓库还没有任何 release，需要先推一个和 `Cargo.toml` 版本一致的 tag，例如：
+如果当前仓库还没有 release，就暂时只能拉源码安装：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git clone https://github.com/jiangdengke/clipway.git
+cd clipway
+./packaging/linux/install-local.sh --with-autostart
 ```
 
-这个 tag 会触发 release workflow，自动构建并上传 `tar.gz` 和 `.sha256` 到 GitHub Releases。
+### 从源码安装
 
 用户本地安装：
 
@@ -123,86 +77,72 @@ git push origin v0.1.0
 sudo ./packaging/linux/install-system.sh
 ```
 
-两个安装脚本都会额外安装一个辅助命令：`clipway-self-check`。
+这两个脚本都会：
 
-便携式 release 打包：
+- 构建 release 二进制
+- 安装 `clipway`
+- 安装 `clipway-self-check`
 
-```bash
-./packaging/linux/package-release.sh
-```
+`install-local.sh` 额外支持：
 
-它会在 `dist/` 下生成压缩包和校验文件，例如：
+- `--prefix=PATH`
+- `--with-autostart`
+- `--with-systemd`
 
-```bash
-dist/clipway-0.1.0-linux-x86_64.tar.gz
-dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
-```
+## 使用方法
 
-解压后可以直接运行其中的 `bin/clipway`，也可以把 `bin/clipway` 和 `bin/clipway-self-check` 拷贝到你想要的安装前缀。
-压缩包里也包含 `.desktop` 文件和 user systemd service 模板，方便二次分发或写自己的安装器。
+### 最常见的用法
 
-## GitHub Releases
-
-CI 会在每次 push 和 pull request 时生成构建产物。如果你要把同样的产物自动发布到 GitHub Releases，推一个和 `Cargo.toml` 版本一致的 tag 就行，例如：
+打开面板，并在需要时自动拉起后台监听：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+clipway
 ```
 
-Release workflow 会构建压缩包、生成 `.sha256` 校验文件，并把这两个文件挂到对应 tag 的 GitHub Release 上。
-
-## 安装后自检
-
-安装完成后可执行：
+只呼出面板：
 
 ```bash
-clipway-self-check
+clipway gui
 ```
 
-如果你安装到了 `~/.local/bin`，但当前 shell 还没有把它加入 `PATH`，可以直接执行：
+启动 tray 常驻模式：
 
 ```bash
-~/.local/bin/clipway-self-check
+clipway tray
 ```
 
-或者针对某个自定义二进制路径执行：
+只启动后台监听，不启用 tray：
 
 ```bash
-./packaging/linux/self-check.sh /absolute/path/to/clipway
+clipway daemon
 ```
 
-自检会报告：
+### 命令行
 
-- `clipway` 二进制是否可调用
-- `wl-copy` 和 `wl-paste` 是否已安装
-- 当前是否处于 Wayland 会话
-- 用户 D-Bus 上是否可见 `xdg-desktop-portal` 和 GlobalShortcuts 接口
-- 是否存在 StatusNotifier watcher，以支持 tray 模式
-- 针对 GNOME、KDE Plasma 和 wlroots 桌面的兼容提示
+```bash
+clipway list
+clipway list 50
+clipway copy 12
+clipway clear
+clipway help
+```
 
-`WARN` 表示该桌面上的某些功能可能会降级。`FAIL` 表示安装本身不完整。
+含义分别是：
 
-## 桌面兼容性
+- `list`：列出最近的历史项
+- `copy <id>`：把某条历史重新复制回剪切板
+- `clear`：清空全部历史
+- `help`：查看帮助
 
-Clipway 面向 Linux Wayland。当前兼容性大致如下：
+### 推荐使用方式
 
-- KDE Plasma Wayland：当前最佳目标环境。剪切板历史、tray 模式以及基于 portal 的能力都更匹配这个桌面
-- GNOME Wayland：剪切板捕获可以正常工作，但 tray 模式通常需要 AppIndicator 或 StatusNotifier 扩展
-- wlroots 桌面，例如 Hyprland、Sway、niri：剪切板捕获可用，但 tray 是否可见取决于面板或状态栏是否实现了 StatusNotifier
-- X11 会话：不支持
+比较实用的组合一般是：
 
-一些实际使用建议：
+1. 登录时启动 `clipway tray`，或者运行 `clipway daemon`
+2. 给 `clipway gui` 绑定一个全局快捷键
+3. 用面板完成搜索、预览和回贴
 
-- 如果某个桌面没有 tray 支持，`clipway daemon` 是最稳妥的退化运行方式
-- 依赖 portal 的功能会受桌面实现和 portal 后端版本影响
-- 如果 `clipway-self-check` 提示 tray 或 portal 不可用，剪切板历史核心功能仍然可以继续使用
-
-## 呼出快捷键
-
-在 wlroots compositor 下，更实际的方式不是让应用自己监听全局按键，而是让 compositor 绑定一个快捷键到 `clipway gui`。这个命令本身已经支持“有窗口就切到前台或切换，没有窗口就启动”。
-
-niri 的例子，写到 `~/.config/niri/config.kdl` 里的 `binds {}`：
+在 wlroots compositor 下，更推荐由 compositor 自己绑定快捷键，而不是让应用监听全局按键。niri 示例：
 
 ```kdl
 binds {
@@ -210,29 +150,114 @@ binds {
 }
 ```
 
-补充几点：
+补充说明：
 
-- 如果 `clipway` 已经在 `PATH` 里，也可以写成 `spawn "clipway" "gui";`
-- niri 的 `spawn` 不经过 shell，所以二进制路径和每个参数都要分开写
-- niri 配置支持热重载；如果你想先检查语法，可以执行 `niri validate`
-- 在已安装 `gtk4-layer-shell` 的 wlroots 环境里，Clipway 会直接以顶部弹出面板方式打开，不再需要额外的 niri 浮动规则
-- 如果你希望登录后就开始记录历史，建议同时开启 tray 自启动，或者把 daemon 放进会话启动项
-- 如果你刚从旧版本升级，先执行一次 `pkill -f '/home/jdk/.local/bin/clipway gui'`，避免快捷键切回旧的普通窗口实例
+- 如果 `clipway` 已在 `PATH` 中，也可以写成 `spawn "clipway" "gui";`
+- `clipway gui` 只负责呼出面板，不会自动显示 tray 图标
+- 如果桌面不支持 tray，`clipway daemon` 是最稳妥的退化方案
 
-如果你的桌面环境暂时不支持 layer-shell，也可以退回到普通浮动窗口方案，再加一条按 `app-id` 匹配的 niri 规则：
+## 安装后自检
 
-```kdl
-window-rule {
-    match app-id=r#"^io\.github\.jdk\.clipway$"#
-    open-floating true
-    default-floating-position x=0 y=24 relative-to="top"
-    default-column-width { proportion 0.55; }
-    default-window-height { proportion 0.72; }
-}
+安装完成后建议执行：
+
+```bash
+clipway-self-check
 ```
 
-这条 fallback 规则会让它以“顶部居中、悬浮、较窄”的方式打开，更接近剪切板面板的感觉。
+如果 `~/.local/bin` 还没进当前 shell 的 `PATH`，可以直接执行：
+
+```bash
+~/.local/bin/clipway-self-check
+```
+
+也可以手动指定二进制路径：
+
+```bash
+./packaging/linux/self-check.sh /absolute/path/to/clipway
+```
+
+自检会检查：
+
+- `clipway` 是否可调用
+- `wl-copy` 和 `wl-paste` 是否已安装
+- 当前是否处于 Wayland 会话
+- `xdg-desktop-portal` 和 GlobalShortcuts 接口是否可见
+- tray 所需的 StatusNotifier watcher 是否存在
+
+`WARN` 表示某些能力会降级，`FAIL` 表示安装本身不完整。
+
+## 桌面兼容性
+
+Clipway 当前只面向 Linux Wayland：
+
+- KDE Plasma Wayland：目前最合适的目标桌面
+- GNOME Wayland：剪切板捕获可用，但 tray 常常需要额外扩展
+- wlroots 桌面，例如 Hyprland、Sway、niri：核心功能可用，tray 是否显示取决于面板或状态栏是否支持 StatusNotifier
+- X11：不支持
 
 ## 当前限制
 
-当前版本支持文本和 `image/png` 剪切板历史。Rich Text、文件列表以及其他 MIME 类型还没有实现。
+当前版本支持：
+
+- 文本
+- `image/png`
+
+暂不支持：
+
+- Rich Text
+- 文件列表
+- 其他 MIME 类型
+
+## 开发与发布
+
+开发运行：
+
+```bash
+cargo run
+```
+
+tray 模式：
+
+```bash
+cargo run -- tray
+```
+
+打包 release：
+
+```bash
+./packaging/linux/package-release.sh
+```
+
+这会在 `dist/` 下生成：
+
+```bash
+dist/clipway-0.1.0-linux-x86_64.tar.gz
+dist/clipway-0.1.0-linux-x86_64.tar.gz.sha256
+```
+
+如果你要把它发布到 GitHub Releases，推送一个和 `Cargo.toml` 版本一致的 tag 即可：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+仓库中的 CI 位于 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)，release 发布流程位于 [`.github/workflows/release.yml`](./.github/workflows/release.yml)。
+
+## 致谢
+
+Clipway 站在这些项目和生态之上：
+
+- Rust
+- GTK4 和 libadwaita
+- `gtk4-layer-shell`
+- `wl-clipboard`
+- SQLite 和 `rusqlite`
+- StatusNotifier 与 `ksni`
+- Wayland 与 `xdg-desktop-portal` 生态
+
+## 许可证
+
+当前仓库还没有附带正式的 `LICENSE` 文件。
+
+这意味着外部使用者不应默认假定本项目已经以某个开源许可证发布。如果你计划公开分发、接受外部贡献或允许第三方打包，建议尽快补充明确的许可证文本。
