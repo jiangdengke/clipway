@@ -81,6 +81,21 @@ impl ksni::Tray for ClipwayTray {
         }
     }
 
+    fn tool_tip(&self) -> ksni::ToolTip {
+        let status = if self.daemon_running {
+            "Background capture is running"
+        } else {
+            "Background capture is stopped"
+        };
+
+        ksni::ToolTip {
+            icon_name: self.icon_name(),
+            title: self.title(),
+            description: format!("{status}\n{} clipboard items saved", self.item_count),
+            ..Default::default()
+        }
+    }
+
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
         use ksni::MenuItem;
         use ksni::menu::StandardItem;
